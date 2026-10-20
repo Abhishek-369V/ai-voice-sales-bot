@@ -89,15 +89,25 @@ def ai_test(payload: AITestRequest):
                 status_code=503,
                 detail="Gemini API key is not configured.",
             )
+
         response = client.models.generate_content(
             model=settings.gemini_model,
             contents=f"Customer message: {payload.message}",
             config=types.GenerateContentConfig(
                 system_instruction=PRODUCT_CONTEXT,
-                temperature=0.4,
-                max_output_tokens=120,
+                max_output_tokens=256,
+                thinking_config=types.ThinkingConfig(
+                    thinking_level="low"
+                ),
             ),
         )
+
+        if response.candidates:
+            logger.info(
+                "Gemini finish reason: %s",
+                response.candidates[0].finish_reason,
+            )
+
         reply = (response.text or "").strip()
         if not reply:
             raise RuntimeError("The model returned an empty response.")
