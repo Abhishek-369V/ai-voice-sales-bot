@@ -124,3 +124,12 @@
 - **Alternatives considered:** Leave recognition continuously active and attempt to filter the assistant's audio from recognized text.
 - **Trade-offs:** The customer waits until the assistant finishes speaking before the next turn; browser speech APIs may still vary by browser.
 - **Validation:** In desktop Chrome or Edge, ask a question by voice, confirm the assistant speaks once, and verify it does not transcribe its own reply as a customer message.
+
+### D-013: Optimize sales responses for concise voice conversations
+
+- **Status:** Implemented 
+- **Decision:** Use a consultative sales prompt, limit response length, and reuse the Gemini client.
+- **Context:** Initial responses sounded generic and were slower than desirable for a live voice interaction.
+- **Rationale:** Direct answers, one discovery question per turn, and shorter output should improve conversational quality and reduce unnecessary generation.
+- **Trade-offs:** Short answers may omit detail; the bot must still answer the customer's actual question.
+- **Validation:** Test discovery, unsupported-feature, and demo-intent scenarios; compare response time and quality before and after changes.
