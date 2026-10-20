@@ -114,3 +114,13 @@
 - **Context:** Starting Uvicorn from different directories can cause environment loading to target the wrong `.env` file.
 - **Rationale:** Makes local startup behavior predictable and avoids misleading missing-key errors.
 - **Validation:** Confirm the key is loaded without printing its value, then verify a successful `/api/ai-test` response
+
+### D-012: Pause speech recognition while the assistant speaks
+
+- **Status:** Implemented in the Phase 2 frontend
+- **Decision:** Stop browser speech recognition while a Gemini response is being generated and spoken, then resume listening after speech playback ends.
+- **Context:** Continuous microphone recognition can capture the assistant's own spoken response and feed it back as a new customer turn.
+- **Rationale:** Sequential turn-taking reduces echo/feedback loops and keeps customer and assistant transcript entries distinct.
+- **Alternatives considered:** Leave recognition continuously active and attempt to filter the assistant's audio from recognized text.
+- **Trade-offs:** The customer waits until the assistant finishes speaking before the next turn; browser speech APIs may still vary by browser.
+- **Validation:** In desktop Chrome or Edge, ask a question by voice, confirm the assistant speaks once, and verify it does not transcribe its own reply as a customer message.
