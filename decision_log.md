@@ -133,3 +133,12 @@
 - **Rationale:** Direct answers, one discovery question per turn, and shorter output should improve conversational quality and reduce unnecessary generation.
 - **Trade-offs:** Short answers may omit detail; the bot must still answer the customer's actual question.
 - **Validation:** Test discovery, unsupported-feature, and demo-intent scenarios; compare response time and quality before and after changes.
+
+### D-014: Reduce Gemini reasoning effort for live sales turns
+
+- **Status:** Implemented and validated
+- **Decision:** Set Gemini 3.8 Flash thinking level to low and allow 256 output tokens for concise sales responses.
+- **Context:** Initial responses were slow and returned incomplete phrases under a restrictive output-token limit.
+- **Rationale:** Reduce unnecessary reasoning overhead while giving the model sufficient output space to complete short answers.
+- **Trade-offs:** Lower reasoning effort may reduce performance on complex requests; temporary provider outages remain possible.
+- **Validation:** Verify complete replies, measure request latency, and test discovery, unsupported-feature, and demo-intent scenarios.
