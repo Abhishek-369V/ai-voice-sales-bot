@@ -1,3 +1,5 @@
+/* ------- Phase 1: responsive dashboard styling --------- */
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root{
@@ -442,6 +444,7 @@ footer a{
     text-decoration:none
 }
 
+/* Combined Responsive Media Queries (Mobile Viewports) */
 @media(max-width:620px){
     .app-shell{width:min(100% - 28px,920px);padding-top:18px}
     .phase-tag{font-size:8px;padding:8px}
@@ -453,4 +456,291 @@ footer a{
     .status-grid{grid-template-columns:1fr}.status-card p{min-height:0}
     .section-heading h2{font-size:20px}.test-panel{padding:16px}
     .panel-title{align-items:flex-start}
+}
+
+/* ------- Phase 2: browser voice conversation ------- */
+
+/* Main Container */
+.voice-panel {
+  margin-top: 20px;
+  padding: 23px;
+  border: 1px solid #29364b;
+  border-radius: 15px;
+  background: #111a2a;
+}
+
+/* Toolbar & Language Settings */
+.voice-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 8px 0 17px;
+}
+
+.language-control {
+  flex: 1;
+  max-width: 300px;
+  margin: 0;
+}
+
+.language-control select {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px 12px;
+  border: 1px solid #35445a;
+  border-radius: 8px;
+  background: #0c1423;
+  color: #e8edf7;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.language-control select:focus {
+  border-color: #59cdbf;
+}
+
+/* Call Status & Animations */
+.call-status-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a7b5c9;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.call-status-block strong {
+  margin-left: 8px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: #e8edf7;
+}
+
+.call-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #69788f;
+}
+
+.call-status-dot.is-live {
+  background: #5ce3b1;
+  box-shadow: 0 0 0 4px #5ce3b122;
+  animation: voicePulse 1.8s infinite;
+}
+
+@keyframes voicePulse {
+  50% {
+    box-shadow: 0 0 0 7px #5ce3b108;
+  }
+}
+
+/* Call Controls */
+.call-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.call-button {
+  margin-top: 0;
+  min-height: 40px;
+}
+
+/* System Messages & Notices */
+.info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid #55503a;
+  border-radius: 9px;
+  background: #2a2a20;
+  color: #e8dca7;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.session-note {
+  margin: 12px 0 0;
+  color: #8290a8;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* --------- Transcript Area --------- */
+
+.transcript-panel {
+  margin-top: 20px;
+  border: 1px solid #29364b;
+  border-radius: 12px;
+  background: #0c1423;
+  overflow: hidden;
+  min-height: 190px;
+}
+
+.transcript-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 15px;
+  border-bottom: 1px solid #263147;
+  color: #a8b6ca;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+
+.transcript-heading span + span {
+  font-weight: 500;
+  letter-spacing: 0;
+  color: #77869e;
+}
+
+/* Empty State */
+.empty-transcript {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 150px;
+  padding: 22px;
+  color: #75849b;
+}
+
+.empty-transcript p {
+  margin: 10px 0 5px;
+  font-size: 12px;
+  color: #c4cedc;
+}
+
+.empty-transcript span {
+  max-width: 300px;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* Conversation Rows */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 15px;
+  border-bottom: 1px solid #202b3e;
+}
+
+.message-row:last-of-type {
+  border-bottom: 0;
+}
+
+/* User & Assistant Avatars */
+.message-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #1b3340;
+  color: #70dfd1;
+}
+
+.message-row.assistant .message-avatar {
+  background: #2b254a;
+  color: #c2a8ff;
+}
+
+/* Message Meta & Text Content */
+.message-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a9b6c9;
+  font-size: 10px;
+}
+
+.message-meta strong {
+  color: #e4ebf6;
+  font-size: 11px;
+}
+
+.message-meta time {
+  color: #74839b;
+  font-size: 9px;
+}
+
+.message-meta svg {
+  color: #8e7ad5;
+}
+
+.message-content p {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #d1dbea;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Live Streaming UI Lines */
+.interim-line,
+.thinking-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 15px;
+  color: #8b9ab1;
+  font-size: 11px;
+  font-style: italic;
+}
+
+.interim-line {
+  color: #72d8cc;
+  background: #102b30;
+}
+
+.thinking-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #b49aff;
+  box-shadow: 0 0 0 4px #b49aff22;
+}
+
+/* --------- Responsive Media Queries --------- */
+
+@media (max-width: 620px) {
+  .voice-panel {
+    padding: 16px;
+  }
+  
+  .voice-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  
+  .language-control {
+    max-width: none;
+  }
+  
+  .call-status-block {
+    justify-content: space-between;
+  }
+  
+  .call-actions .call-button {
+    flex: 1;
+  }
 }
