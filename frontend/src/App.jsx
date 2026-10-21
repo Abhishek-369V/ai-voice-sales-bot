@@ -76,7 +76,6 @@ export default function App() {
     if (!recognition || !sessionActiveRef.current || processingRef.current || botSpeakingRef.current) return
     try {
       recognition.start()
-      setCallStatus('listening')
       setVoiceError('')
     } catch (err) {
       // Chromium can throw InvalidStateError if start() is called while already active.
@@ -171,7 +170,7 @@ export default function App() {
     processingRef.current = false
     botSpeakingRef.current = false
     sessionActiveRef.current = true
-    callStartedAtRef.current = Date.now()
+    callStartedAtRef.current = null
 
     const recognition = new SpeechRecognition()
     recognition.lang = language
@@ -179,6 +178,26 @@ export default function App() {
     recognition.interimResults = true
     recognition.maxAlternatives = 1
 
+    recognition.onstart = () => {
+      // Ignore a late browser event if the user already ended the call.
+      if (!sessionActiveRef.current) {
+        try {
+          recognition.stop()
+        } catch {
+          // Recognition may already have stopped.
+        }
+        return
+      }
+
+      // Set the start time only once per call, not on every recognition restart.
+      if (callStartedAtRef.current === null) {
+        callStartedAtRef.current = Date.now()
+      }
+
+      setCallStatus('listening')
+      setVoiceError('')
+    }
+    
     recognition.onresult = (event) => {
       let interim = ''
       let finalText = ''
@@ -196,6 +215,8 @@ export default function App() {
       if (event.error === 'no-speech' || event.error === 'aborted') return
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         sessionActiveRef.current = false
+        callStartedAtRef.current = null
+        setCallSeconds(0)
         setCallStatus('error')
         setVoiceError('Microphone permission was denied. Allow microphone access in your browser settings, then start the call again.')
         return
@@ -211,7 +232,7 @@ export default function App() {
     }
 
     recognitionRef.current = recognition
-    setCallStatus('listening')
+    setCallStatus('connecting')
     startRecognition()
   }
 
@@ -229,11 +250,17 @@ export default function App() {
 
   useEffect(() => {
     let intervalId
-    if (callStatus !== 'idle' && callStatus !== 'ended' && callStartedAtRef.current) {
+
+    const callIsActive = ['listening', 'thinking', 'speaking'].includes(callStatus)
+
+    if (callIsActive && callStartedAtRef.current !== null) {
       intervalId = window.setInterval(() => {
-        setCallSeconds(Math.floor((Date.now() - callStartedAtRef.current) / 1000))
+        setCallSeconds(
+          Math.floor((Date.now() - callStartedAtRef.current) / 1000)
+        )
       }, 1000)
     }
+
     return () => window.clearInterval(intervalId)
   }, [callStatus])
 
@@ -267,6 +294,7 @@ export default function App() {
 
   const statusLabel = {
     idle: 'READY TO CALL',
+    connecting: 'CONNECTING',
     listening: 'LISTENING',
     thinking: 'THINKING',
     speaking: 'ASSISTANT SPEAKING',
@@ -309,15 +337,15 @@ export default function App() {
       <div className="panel-title"><span className="status-icon purple"><Mic size={18}/></span><div><h2>Live voice conversation</h2><p>Use desktop Chrome or Edge and allow microphone access when prompted.</p></div></div>
       <div className="voice-toolbar">
         <label className="language-control">CONVERSATION LANGUAGE
-          <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={sessionActiveRef.current || ['listening', 'thinking', 'speaking'].includes(callStatus)}>
+          <select value={language} onChange={(event) => setLanguage(event.target.value)} disabled={sessionActiveRef.current || ['connecting', 'listening', 'thinking', 'speaking'].includes(callStatus)}>
             {SPEECH_LANGUAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
         </label>
         <div className="call-status-block"><span className={`call-status-dot ${callStatus === 'listening' ? 'is-live' : ''}`}/><span>{statusLabel}</span><strong>{formatClock(callSeconds)}</strong></div>
       </div>
       <div className="call-actions">
-        <button className="primary-button call-button" onClick={startVoiceCall} disabled={!voiceSupported || ['listening', 'thinking', 'speaking'].includes(callStatus)}><Phone size={16}/>{callStatus === 'ended' ? 'Start another call' : 'Start voice call'}</button>
-        <button className="secondary-button call-button" onClick={endVoiceCall} disabled={!['listening', 'thinking', 'speaking', 'error'].includes(callStatus)}><PhoneOff size={16}/>End call</button>
+        <button className="primary-button call-button" onClick={startVoiceCall} disabled={!voiceSupported || ['connecting', 'listening', 'thinking', 'speaking'].includes(callStatus)}><Phone size={16}/>{callStatus === 'ended' ? 'Start another call' : 'Start voice call'}</button>
+        <button className="secondary-button call-button" onClick={endVoiceCall} disabled={!['connecting', 'listening', 'thinking', 'speaking', 'error'].includes(callStatus)}><PhoneOff size={16}/>End call</button>
       </div>
       {!voiceSupported && <div className="info-box"><CircleAlert size={17}/><span>Browser speech recognition is not available here. Use desktop Chrome or Edge. You can still test Gemini using the text form below.</span></div>}
       {voiceError && <div className="error-box"><CircleAlert size={17}/><span>{voiceError}</span></div>}
