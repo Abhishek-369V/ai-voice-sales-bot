@@ -12,6 +12,7 @@ import {
   PhoneOff,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Volume2,
 } from 'lucide-react'
 
@@ -51,6 +52,9 @@ export default function App() {
   const [callSummary, setCallSummary] = useState(null)
   const [callHistory, setCallHistory] = useState([])
   const [historyStatus, setHistoryStatus] = useState('loading')
+  const [showClearHistoryConfirmation, setShowClearHistoryConfirmation] = useState(false)
+  const [clearingHistory, setClearingHistory] = useState(false)
+  const [historyActionMessage, setHistoryActionMessage] = useState('')
   const [saveMessage, setSaveMessage] = useState('')
   const [savingCall, setSavingCall] = useState(false)
 
@@ -119,6 +123,31 @@ export default function App() {
       setHistoryStatus('ready')
     } catch {
       setHistoryStatus('error')
+    }
+  }
+
+  async function clearCallHistory() {
+    setClearingHistory(true)
+    setHistoryActionMessage('')
+    try {
+      const response = await fetch(`${API_BASE}/api/calls`, { method: 'DELETE' })
+      if (!response.ok) {
+        let detail = `HTTP ${response.status}`
+        try {
+          const body = await response.json()
+          if (body.detail) detail = body.detail
+        } catch { /* response did not contain JSON */ }
+        throw new Error(detail)
+      }
+      const result = await response.json()
+      setCallHistory([])
+      setHistoryStatus('ready')
+      setShowClearHistoryConfirmation(false)
+      setHistoryActionMessage(`Cleared ${result.deleted_count} saved call${result.deleted_count === 1 ? '' : 's'}.`)
+    } catch (err) {
+      setHistoryActionMessage(`Could not clear call history: ${err.message || 'Check the backend and retry.'}`)
+    } finally {
+      setClearingHistory(false)
     }
   }
 
@@ -639,7 +668,9 @@ export default function App() {
     </section>
 
     <section className="history-panel">
-      <div className="panel-title"><span className="status-icon"><History size={18}/></span><div><h2>Call history</h2><p>Saved transcripts, summaries, sales statuses, and consented recordings.</p></div><button className="secondary-button history-refresh" onClick={refreshCallHistory}>Refresh</button></div>
+      <div className="panel-title"><span className="status-icon"><History size={18}/></span><div className="history-heading"><h2>Call history</h2><p>Saved transcripts, summaries, sales statuses, and consented recordings.</p></div><div className="history-actions"><button className="secondary-button" onClick={refreshCallHistory} disabled={clearingHistory || historyStatus === 'loading'}>Refresh</button>{historyStatus === 'ready' && callHistory.length > 0 && <button className="danger-button" onClick={() => { setHistoryActionMessage(''); setShowClearHistoryConfirmation(true) }} disabled={clearingHistory}><Trash2 size={14}/>Clear history</button>}</div></div>
+      {showClearHistoryConfirmation && <div className="history-clear-confirmation" role="alertdialog" aria-label="Confirm clearing call history"><div><strong>Delete all saved calls?</strong><p>This permanently removes all call transcripts, summaries, statuses, and saved recordings from the database.</p></div><div className="history-confirm-actions"><button className="secondary-button" onClick={() => setShowClearHistoryConfirmation(false)} disabled={clearingHistory}>Cancel</button><button className="danger-button" onClick={clearCallHistory} disabled={clearingHistory}><Trash2 size={14}/>{clearingHistory ? 'Clearing…' : 'Delete all'}</button></div></div>}
+      {historyActionMessage && <p className={historyActionMessage.startsWith('Could not') ? 'history-action-error' : 'history-action-success'} role="status">{historyActionMessage}</p>}
       {historyStatus === 'loading' && <p className="muted">Loading saved calls…</p>}
       {historyStatus === 'error' && <div className="info-box">Could not load call history. Check that the backend is running.</div>}
       {historyStatus === 'ready' && callHistory.length === 0 && <p className="muted">No saved calls yet. Complete a voice call to create the first history entry.</p>}
