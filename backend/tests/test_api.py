@@ -181,23 +181,37 @@ def test_consented_recording_is_saved_and_playable(api_client):
     assert playback.headers["content-type"].startswith("audio/webm")
 
 
-def test_tts_returns_audio_bytes_with_mocked_gtts(api_client, monkeypatch):
-    import gtts
+@pytest.mark.parametrize("language", ["te", "hi", "en"])
+def test_tts_returns_audio_bytes_for_supported_languages(
+    api_client, monkeypatch, language
+):
+    calls = []
 
-    def fake_write_to_fp(self, file_obj):
-        file_obj.write(b"fake-mp3-audio")
+    class FakeTTS:
+        def __init__(self, text, lang, slow):
+            calls.append((text, lang, slow))
 
-    # Mock audio generation so the test never contacts Google's servers.
-    monkeypatch.setattr(gtts.gTTS, "write_to_fp", fake_write_to_fp)
+        def write_to_fp(self, file_obj):
+            file_obj.write(b"fake-mp3-audio")
+
+    # Patch the exact symbol used by app.main.
+    monkeypatch.setattr(main, "gTTS", FakeTTS)
 
     response = api_client.post(
         "/api/tts",
-        json={"text": "నమస్కారం", "language": "te"},
+        json={"text": "నమస్కారం", "language": language},
     )
 
     assert response.status_code == 200
     assert response.content == b"fake-mp3-audio"
     assert response.headers["content-type"].startswith("audio/mpeg")
+    assert calls == [("నమస్కారం", language, False)]
+
+
+def test_tts_rejects_unsupported_language(api_client):
+    response = api_client.post("/api/tts", json={"text": "Hello", "language": "fr"})
+
+    assert response.status_code == 422
 
 
 def test_call_summary_uses_only_allowed_sales_statuses(api_client, monkeypatch):
