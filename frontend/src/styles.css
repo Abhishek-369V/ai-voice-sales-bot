@@ -1071,3 +1071,113 @@ label.recording-consent {
     overflow-wrap: anywhere;
   }
 }
+
+
+/* --------- Post-call summary --------- */
+.summary-card {
+  margin-top: 14px;
+  padding: 20px;
+  border: 1px solid #2d4156;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #111c2d, #0d1625);
+  box-shadow: 0 8px 24px #00000018;
+  min-width: 0;
+}
+
+.summary-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.summary-card-header > div {
+  min-width: 0;
+}
+
+.summary-card-header h3 {
+  margin: 6px 0 0;
+  color: #f0f5ff;
+  font: 600 19px/1.35 'Space Grotesk', sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.summary-card > p {
+  margin: 0 0 18px;
+  color: #c7d3e4;
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.summary-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+
+.summary-columns > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #29374b;
+  border-radius: 10px;
+  background: #0b1422;
+}
+
+.summary-columns > div > strong {
+  display: block;
+  margin-bottom: 9px;
+  color: #72e1d3;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.2px;
+}
+
+.summary-columns ul {
+  margin: 0;
+  padding-left: 17px;
+  color: #d4deed;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.summary-columns li + li {
+  margin-top: 6px;
+}
+
+.summary-columns > div > p {
+  margin: 0;
+  color: #8594aa;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .summary-card {
+    padding: 15px;
+  }
+
+  .summary-columns {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .summary-columns > div {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .summary-card-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sales-status-badge {
+    max-width: 100%;
+  }
+}
