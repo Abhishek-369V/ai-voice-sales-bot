@@ -22,3 +22,8 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local call recordings and history database
+backend/data/
+*.sqlite3
+*.sqlite

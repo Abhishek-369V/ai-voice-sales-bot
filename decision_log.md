@@ -142,3 +142,42 @@
 - **Rationale:** Reduce unnecessary reasoning overhead while giving the model sufficient output space to complete short answers.
 - **Trade-offs:** Lower reasoning effort may reduce performance on complex requests; temporary provider outages remain possible.
 - **Validation:** Verify complete replies, measure request latency, and test discovery, unsupported-feature, and demo-intent scenarios.
+
+
+### D-015: Lightweight Automated Testing and CI
+
+- **Status:** Accepted
+- **Context:** The assignment has a short implementation window, so quality checks must not delay the working voice-sales MVP.
+- **Decision:** Add focused backend regression tests. After the core call flow works, add GitHub Actions to run the tests on pushes and pull requests if time permits. Defer automated deployment unless the hosting platform provides a simple setup.
+- **Rationale:** Catch regressions without depending on live Gemini availability, API quotas, or secrets in CI.
+- **Consequences:** The main priority remains end-to-end functionality; tests and CI improve reliability without replacing manual call testing.
+
+### D-016: Use a backend Telugu TTS fallback without a cloud API key
+
+- **Status:** Accepted for demo; validate against live network behavior
+- **Decision:** Use Python `gTTS` through a backend-only `/api/tts` endpoint for Telugu speech output when the browser does not expose a Telugu speech-synthesis voice. Keep the existing browser speech-synthesis path for English and Hindi.
+- **Context:** The tested browser returned an empty list for Telugu voices while Gemini generated a complete Telugu text response. The user no longer has an active Azure free account.
+- **Rationale:** Avoids requiring a new cloud subscription or API key and isolates the workaround to Telugu playback.
+- **Alternatives considered:** Azure AI Speech, Google Cloud Text-to-Speech, and local TTS models.
+- **Trade-offs:** `gTTS` depends on an unofficial upstream Google Translate speech endpoint, requires internet access, and may be rate-limited or change without notice. It is not a production SLA-backed dependency.
+- **Validation:** Mock `/api/tts` in automated tests; manually test a real Telugu voice call with network access and confirm audio playback and listening resumption.
+
+### D-017: Record audio only after explicit user consent
+
+- **Status:** Implemented; manual browser validation required
+- **Decision:** Add an unchecked recording-consent checkbox. Start `MediaRecorder` only when the user opts in; otherwise save transcript and call intelligence without audio.
+- **Context:** The assignment requires a recording that can be replayed after a conversation, with consent.
+- **Rationale:** Makes recording explicit and allows a call to continue when the user declines recording.
+- **Alternatives considered:** Automatically recording every call or requiring consent to use the call feature at all.
+- **Trade-offs:** Browser recording support and microphone permissions vary; the demo currently stores recordings as SQLite BLOBs and caps uploaded audio at 10 MB.
+- **Validation:** Confirm unchecked calls save no recording, checked calls save playable audio, and the API rejects audio sent without consent.
+
+### D-018: Persist call history and validated post-call sales intelligence in SQLite
+
+- **Status:** Implemented; end-to-end validation required
+- **Decision:** Store call metadata, transcript, structured summary, requirements, objections, next steps, one exact sales status, and optional consented audio in SQLite. Generate structured post-call analysis through Gemini and validate the status against the six required values.
+- **Context:** The assignment requires call history, recordings, transcripts, summaries, and one final sales status per call.
+- **Rationale:** SQLite keeps the single-instance demo self-contained and provides durable history across page reloads.
+- **Alternatives considered:** Keeping calls only in frontend state or using a hosted database.
+- **Trade-offs:** Local SQLite is not shared across multiple deployment instances; summary generation requires Gemini for calls with customer messages. Empty customer transcripts receive `No Response` without a model call.
+- **Validation:** API tests cover no-response classification, consent enforcement, recording playback, and structured summary validation; manually test a complete call through save and reload.
