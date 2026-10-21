@@ -143,6 +143,42 @@ def test_call_history_saves_no_response_status(api_client):
     assert history.json()[0]["id"] == body["id"]
 
 
+def test_clear_call_history_deletes_calls_and_saved_recordings(api_client):
+    first = api_client.post(
+        "/api/calls",
+        json={"transcript": [], "duration_seconds": 5, "recording_consent": False},
+    )
+    second = api_client.post(
+        "/api/calls",
+        json={
+            "transcript": [],
+            "duration_seconds": 9,
+            "recording_consent": True,
+            "recording_base64": "dGVzdCBhdWRpbw==",
+            "recording_mime_type": "audio/webm",
+        },
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    recording_id = second.json()["id"]
+    assert api_client.get(f"/api/calls/{recording_id}/recording").status_code == 200
+
+    response = api_client.delete("/api/calls")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted_count": 2}
+    assert api_client.get("/api/calls").json() == []
+    assert api_client.get(f"/api/calls/{recording_id}/recording").status_code == 404
+
+
+def test_clear_call_history_succeeds_when_already_empty(api_client):
+    response = api_client.delete("/api/calls")
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted_count": 0}
+    assert api_client.get("/api/calls").json() == []
+
+
 def test_call_history_rejects_recording_without_consent(api_client):
     response = api_client.post(
         "/api/calls",
