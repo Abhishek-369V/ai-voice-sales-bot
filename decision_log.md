@@ -181,3 +181,14 @@
 - **Alternatives considered:** Keeping calls only in frontend state or using a hosted database.
 - **Trade-offs:** Local SQLite is not shared across multiple deployment instances; summary generation requires Gemini for calls with customer messages. Empty customer transcripts receive `No Response` without a model call.
 - **Validation:** API tests cover no-response classification, consent enforcement, recording playback, and structured summary validation; manually test a complete call through save and reload.
+
+
+### D-019: Mix customer microphone and assistant speech in consented recordings
+
+- **Status:** Implemented; browser end-to-end validation required
+- **Decision:** Route microphone input and backend-generated assistant audio through a Web Audio `MediaStreamDestination`, then record the mixed stream only when explicit recording consent is enabled. Use the backend TTS endpoint for English, Hindi, and Telugu so the assistant audio is available as a media stream source.
+- **Context:** Initial MediaRecorder implementation recorded only the microphone stream; browser `speechSynthesis` output is not directly exposed as a MediaStream.
+- **Rationale:** A mixed stream creates a single replayable audio recording containing both sides of the conversation without asking the user to share their screen/tab audio.
+- **Alternatives considered:** Keep microphone-only recording, or require `getDisplayMedia` tab-audio sharing, which adds a disruptive browser sharing prompt and is browser-dependent.
+- **Trade-offs:** The free `gTTS` path is an unofficial internet-dependent service, can add latency, and may be rate-limited. Browser testing must confirm assistant audio is audible in the recording and that playback remains audible to the user.
+- **Validation:** Automated tests cover supported TTS language codes; manually record a consented English, Hindi, and Telugu call and replay each recording. Confirm unchecked consent stores no audio.
