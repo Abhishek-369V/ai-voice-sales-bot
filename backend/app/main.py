@@ -263,7 +263,7 @@ def text_to_speech(payload: TTSRequest):
     language = payload.language
     try:
         audio_buffer = BytesIO()
-        gTTS(text=text, lang="te", slow=False).write_to_fp(audio_buffer)
+        gTTS(text=text, lang=language, slow=False).write_to_fp(audio_buffer)
         audio_bytes = audio_buffer.getvalue()
         if not audio_bytes:
             raise RuntimeError("TTS provider returned empty audio.")
@@ -271,10 +271,10 @@ def text_to_speech(payload: TTSRequest):
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("Telugu TTS request failed")
+        logger.exception("Text-to-speech request failed")
         raise HTTPException(
             status_code=502,
-            detail=f"Telugu speech service failed ({type(exc).__name__}). Check internet access and retry.",
+            detail=f"Speech service failed ({type(exc).__name__}). Check internet access and retry.",
         ) from exc
 
 

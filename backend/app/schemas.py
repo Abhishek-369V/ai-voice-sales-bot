@@ -61,4 +61,4 @@ class CallHistoryItem(BaseModel):
 
 class TTSRequest(BaseModel):
     text: str = Field(min_length=1, max_length=3000)
-    language: Literal["te"] = "te"
+    language: Literal["en", "hi", "te"] = "te"
