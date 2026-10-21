@@ -41,7 +41,7 @@ DB_PATH = Path(
 
 app = FastAPI(
     title="AI Voice Sales Bot API",
-    version="0.2.0",
+    version="0.4.7",
     description="VoicePilot AI sales bot API with voice playback and call history.",
 )
 
@@ -49,7 +49,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin],
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
@@ -316,6 +316,15 @@ def list_calls():
     with _database() as connection:
         rows = connection.execute("SELECT * FROM calls ORDER BY id DESC LIMIT 100").fetchall()
     return [_row_to_history_item(row) for row in rows]
+
+
+@app.delete("/api/calls")
+def clear_call_history():
+    """Delete all saved calls, including any recording blobs stored with them."""
+    with _database() as connection:
+        cursor = connection.execute("DELETE FROM calls")
+        deleted_count = cursor.rowcount
+    return {"deleted_count": deleted_count}
 
 
 @app.get("/api/calls/{call_id}/recording")
