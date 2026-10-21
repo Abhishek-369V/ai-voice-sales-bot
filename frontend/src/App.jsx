@@ -676,7 +676,7 @@ export default function App() {
       {historyStatus === 'ready' && callHistory.length === 0 && <p className="muted">No saved calls yet. Complete a voice call to create the first history entry.</p>}
       <div className="history-list">{callHistory.map((item) => <article className="history-item" key={item.id}>
         <div className="history-item-top"><div><strong>Call #{item.id}</strong><span>{new Date(item.created_at).toLocaleString()}</span></div><span className="sales-status-badge">{item.sales_status}</span></div>
-        <p>{item.summary}</p>
+        <p className="history-summary">{item.summary}</p>
         <div className="history-meta"><span>{formatClock(item.duration_seconds)}</span><span>{item.transcript.length} messages</span><span>{item.has_recording ? 'Recording saved' : 'Transcript only'}</span></div>
         {item.has_recording && <audio controls preload="none" src={`${API_BASE}/api/calls/${item.id}/recording`} />}
         <details><summary>View transcript and next steps</summary><div className="history-transcript">{item.transcript.map((message, index) => <p key={`${item.id}-${index}`}><strong>{message.speaker === 'customer' ? 'Customer' : 'VoicePilot'}:</strong> {message.text}</p>)}<strong>Next steps</strong><ul>{item.next_steps.map((step, index) => <li key={index}>{step}</li>)}</ul></div></details>
