@@ -35,7 +35,7 @@ def fake_response(text="Thanks for sharing that. How are you managing follow-ups
 
 
 @pytest.fixture
-def api_client(monkeypatch):
+def api_client(monkeypatch, tmp_path):
     """Use fake settings so tests do not need a local .env or real API key."""
     monkeypatch.setattr(
         main,
@@ -46,6 +46,7 @@ def api_client(monkeypatch):
             frontend_origin="http://localhost:5173",
         ),
     )
+    monkeypatch.setattr(main, "DB_PATH", tmp_path / "call-history.sqlite3")
     return TestClient(main.app)
 
 
@@ -122,3 +123,107 @@ def test_ai_test_returns_502_when_provider_raises(api_client, monkeypatch):
 
     assert response.status_code == 502
     assert "ValueError" in response.json()["detail"]
+
+
+def test_call_history_saves_no_response_status(api_client):
+    response = api_client.post(
+        "/api/calls",
+        json={"transcript": [], "duration_seconds": 8, "recording_consent": False},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sales_status"] == "No Response"
+    assert body["has_recording"] is False
+    assert body["summary"] == "No customer response was captured during this call."
+
+    history = api_client.get("/api/calls")
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    assert history.json()[0]["id"] == body["id"]
+
+
+def test_call_history_rejects_recording_without_consent(api_client):
+    response = api_client.post(
+        "/api/calls",
+        json={
+            "transcript": [],
+            "duration_seconds": 5,
+            "recording_consent": False,
+            "recording_base64": "dGVzdA==",
+            "recording_mime_type": "audio/webm",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "explicit recording consent" in response.json()["detail"]
+
+
+def test_consented_recording_is_saved_and_playable(api_client):
+    response = api_client.post(
+        "/api/calls",
+        json={
+            "transcript": [],
+            "duration_seconds": 5,
+            "recording_consent": True,
+            "recording_base64": "dGVzdCBhdWRpbw==",
+            "recording_mime_type": "audio/webm",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["has_recording"] is True
+
+    playback = api_client.get(f"/api/calls/{body['id']}/recording")
+    assert playback.status_code == 200
+    assert playback.content == b"test audio"
+    assert playback.headers["content-type"].startswith("audio/webm")
+
+
+def test_tts_returns_audio_bytes_with_mocked_gtts(api_client, monkeypatch):
+    import gtts
+
+    def fake_write_to_fp(self, file_obj):
+        file_obj.write(b"fake-mp3-audio")
+
+    # Mock audio generation so the test never contacts Google's servers.
+    monkeypatch.setattr(gtts.gTTS, "write_to_fp", fake_write_to_fp)
+
+    response = api_client.post(
+        "/api/tts",
+        json={"text": "నమస్కారం", "language": "te"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b"fake-mp3-audio"
+    assert response.headers["content-type"].startswith("audio/mpeg")
+
+
+def test_call_summary_uses_only_allowed_sales_statuses(api_client, monkeypatch):
+    summary_json = (
+        '{"summary":"Customer wants help tracking leads.",'
+        '"customer_requirements":["Track leads"],"objections":[],'
+        '"next_steps":["Offer a demo"],"sales_status":"Interested"}'
+    )
+    fake_client = FakeGenAIClient(response=fake_response(text=summary_json))
+    monkeypatch.setattr(main, "client", fake_client)
+
+    response = api_client.post(
+        "/api/calls",
+        json={
+            "transcript": [
+                {"speaker": "customer", "text": "I want to track my leads."},
+                {"speaker": "assistant", "text": "LeadPilot helps organize leads."},
+            ],
+            "duration_seconds": 22,
+            "recording_consent": False,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["sales_status"] == "Interested"
+    assert body["customer_requirements"] == ["Track leads"]
+    assert body["has_recording"] is False
+    assert fake_client.models.last_kwargs["config"].response_mime_type == "application/json"
