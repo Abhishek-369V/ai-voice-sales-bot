@@ -66,11 +66,15 @@ export default function App() {
   const recordingChunksRef = useRef([])
   const audioRef = useRef(null)
   const audioUrlRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const recordingDestinationRef = useRef(null)
+  const microphoneSourceRef = useRef(null)
+  const assistantAudioSourceRef = useRef(null)
   const saveStartedRef = useRef(false)
 
   const connected = apiStatus === 'connected'
   const SpeechRecognition = getSpeechRecognitionConstructor()
-  const voiceSupported = Boolean(SpeechRecognition) && typeof window !== 'undefined' && 'speechSynthesis' in window
+  const voiceSupported = Boolean(SpeechRecognition) && typeof window !== 'undefined'
 
   async function checkApi() {
     setApiStatus('checking')
@@ -115,6 +119,22 @@ export default function App() {
       setHistoryStatus('ready')
     } catch {
       setHistoryStatus('error')
+    }
+  }
+
+  function cleanupRecordingAudioGraph() {
+    try { assistantAudioSourceRef.current?.disconnect() } catch { /* already disconnected */ }
+    try { microphoneSourceRef.current?.disconnect() } catch { /* already disconnected */ }
+    assistantAudioSourceRef.current = null
+    microphoneSourceRef.current = null
+    recordingDestinationRef.current = null
+    recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+    recordingStreamRef.current = null
+
+    const context = audioContextRef.current
+    audioContextRef.current = null
+    if (context && context.state !== 'closed') {
+      void context.close().catch(() => { /* ignore cleanup errors */ })
     }
   }
 
@@ -195,24 +215,39 @@ export default function App() {
       setAiStatus('success')
       appendTranscript({ id: `${Date.now()}-assistant`, speaker: 'assistant', text: answer, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })
 
-      if (sessionActiveRef.current && language === 'te-IN') {
+      if (sessionActiveRef.current && (language === 'te-IN' || recordingConsent)) {
         try {
           const ttsResponse = await fetch(`${API_BASE}/api/tts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: answer, language: 'te' }),
+            body: JSON.stringify({
+              text: answer,
+              language: ({ 'te-IN': 'te', 'hi-IN': 'hi', 'en-IN': 'en', 'en-US': 'en' })[language] || 'en',
+            }),
           })
           if (!ttsResponse.ok) {
             const ttsError = await ttsResponse.json().catch(() => ({}))
-            throw new Error(ttsError.detail || `Telugu speech failed: HTTP ${ttsResponse.status}`)
+            throw new Error(ttsError.detail || `Speech generation failed: HTTP ${ttsResponse.status}`)
           }
           const audioUrl = URL.createObjectURL(await ttsResponse.blob())
           audioUrlRef.current = audioUrl
           const audio = new Audio(audioUrl)
           audioRef.current = audio
+
+          // Route assistant playback both to speakers and into the consented recording mix.
+          if (audioContextRef.current && recordingDestinationRef.current) {
+            await audioContextRef.current.resume()
+            const assistantSource = audioContextRef.current.createMediaElementSource(audio)
+            assistantSource.connect(audioContextRef.current.destination)
+            assistantSource.connect(recordingDestinationRef.current)
+            assistantAudioSourceRef.current = assistantSource
+          }
+
           botSpeakingRef.current = true
           setCallStatus('speaking')
           const finishAudio = () => {
+            try { assistantAudioSourceRef.current?.disconnect() } catch { /* already disconnected */ }
+            assistantAudioSourceRef.current = null
             URL.revokeObjectURL(audioUrl)
             audioUrlRef.current = null
             audioRef.current = null
@@ -228,13 +263,19 @@ export default function App() {
           audio.onended = finishAudio
           audio.onerror = () => {
             finishAudio()
-            setVoiceError('Telugu audio was generated but could not be played by this browser.')
+            setVoiceError('Generated speech audio could not be played by this browser.')
           }
           await audio.play()
         } catch (ttsErr) {
+          try { audioRef.current?.pause() } catch { /* ignore playback cleanup errors */ }
+          try { assistantAudioSourceRef.current?.disconnect() } catch { /* already disconnected */ }
+          assistantAudioSourceRef.current = null
+          audioRef.current = null
+          if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+          audioUrlRef.current = null
           botSpeakingRef.current = false
           processingRef.current = false
-          setVoiceError(`${ttsErr.message || 'Telugu speech playback failed.'} The response remains available in the transcript.`)
+          setVoiceError(`${ttsErr.message || 'Speech playback failed.'} The response remains available in the transcript.`)
           if (sessionActiveRef.current) startRecognition()
         }
       } else if (sessionActiveRef.current && 'speechSynthesis' in window) {
@@ -274,7 +315,7 @@ export default function App() {
       setCallStatus(sessionActiveRef.current ? 'listening' : 'idle')
       if (sessionActiveRef.current) startRecognition()
     }
-  }, [language, startRecognition])
+  }, [language, recordingConsent, startRecognition])
 
   async function startVoiceCall() {
     if (!voiceSupported) {
@@ -307,25 +348,42 @@ export default function App() {
         if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
           throw new Error('Audio recording is not supported by this browser.')
         }
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const AudioContextConstructor = window.AudioContext || window.webkitAudioContext
+        if (!AudioContextConstructor) {
+          throw new Error('Audio mixing is not supported by this browser.')
+        }
+
+        // Create the audio context from the Start Call user gesture so playback can resume.
+        const audioContext = new AudioContextConstructor()
+        audioContextRef.current = audioContext
+        await audioContext.resume()
+
+        const microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         if (!sessionActiveRef.current) {
-          stream.getTracks().forEach((track) => track.stop())
+          microphoneStream.getTracks().forEach((track) => track.stop())
+          cleanupRecordingAudioGraph()
           return
         }
-        recordingStreamRef.current = stream
+
+        recordingStreamRef.current = microphoneStream
+        const recordingDestination = audioContext.createMediaStreamDestination()
+        recordingDestinationRef.current = recordingDestination
+        const microphoneSource = audioContext.createMediaStreamSource(microphoneStream)
+        microphoneSource.connect(recordingDestination)
+        microphoneSourceRef.current = microphoneSource
+
         recordingChunksRef.current = []
         const preferredMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
           .find((type) => MediaRecorder.isTypeSupported(type))
         const recorder = preferredMime
-          ? new MediaRecorder(stream, { mimeType: preferredMime })
-          : new MediaRecorder(stream)
+          ? new MediaRecorder(recordingDestination.stream, { mimeType: preferredMime })
+          : new MediaRecorder(recordingDestination.stream)
         recorder.ondataavailable = (event) => {
           if (event.data?.size) recordingChunksRef.current.push(event.data)
         }
         recorder.onstop = () => {
           const blob = new Blob(recordingChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-          recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
-          recordingStreamRef.current = null
+          cleanupRecordingAudioGraph()
           mediaRecorderRef.current = null
           if (blob.size) {
             void finalizeCall(blob, true)
@@ -341,8 +399,7 @@ export default function App() {
       } catch (recordingErr) {
         setRecordingState('error')
         setVoiceError(`Recording could not start: ${recordingErr.message || 'browser recording unavailable'}. The call can continue without a recording.`)
-        recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
-        recordingStreamRef.current = null
+        cleanupRecordingAudioGraph()
       }
     } else {
       setRecordingState('off')
@@ -394,7 +451,7 @@ export default function App() {
         callStartedAtRef.current = null
         setCallSeconds(0)
         if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
-        else recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+        else cleanupRecordingAudioGraph()
         setCallStatus('error')
         setVoiceError('Microphone permission was denied. Allow microphone access in your browser settings, then start the call again.')
         return
@@ -437,8 +494,7 @@ export default function App() {
       setRecordingState('saving')
       mediaRecorderRef.current.stop()
     } else {
-      recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
-      recordingStreamRef.current = null
+      cleanupRecordingAudioGraph()
       void finalizeCall(null, false)
     }
   }
@@ -464,7 +520,7 @@ export default function App() {
     if (restartTimerRef.current) window.clearTimeout(restartTimerRef.current)
     try { recognitionRef.current?.stop() } catch { /* ignore unmount cleanup errors */ }
     if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
-    recordingStreamRef.current?.getTracks().forEach((track) => track.stop())
+    else cleanupRecordingAudioGraph()
     if (audioRef.current) audioRef.current.pause()
     if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
@@ -545,7 +601,7 @@ export default function App() {
           onChange={(event) => setRecordingConsent(event.target.checked)}
           disabled={['connecting', 'listening', 'thinking', 'speaking'].includes(callStatus)}
         />
-        <span><strong>Consent to record this call</strong><small>If selected, VoicePilot captures microphone audio and saves it with the transcript in call history. Leave unchecked to save only the transcript and summary.</small></span>
+        <span><strong>Consent to record this call</strong><small>If selected, VoicePilot records your microphone and assistant replies together, then saves the audio with the transcript. Leave unchecked to save only the transcript and summary. Consented calls use backend-generated speech so both sides can be recorded.</small></span>
       </label>
       {recordingState === 'recording' && <div className="recording-indicator"><span className="recording-dot"/> Recording is active with your consent.</div>}
       <div className="voice-toolbar">
@@ -603,7 +659,7 @@ export default function App() {
       {reply && <div className="reply-box"><div className="reply-label"><CheckCircle2 size={16}/> AI SALES ASSISTANT</div><p>{reply}</p></div>}
     </section>
 
-    <section className="next-panel"><div className="next-icon"><CheckCircle2 size={20}/></div><div><h3>Phase 4 milestone</h3><p>Live voice conversations, consent-based audio recording, persistent SQLite call history, structured post-call summaries, and one validated sales status are implemented. Telugu playback uses a backend TTS fallback when enabled; its upstream service requires internet access.</p></div></section>
+    <section className="next-panel"><div className="next-icon"><CheckCircle2 size={20}/></div><div><h3>Phase 4 milestone</h3><p>Live voice conversations, consent-based audio recording, persistent SQLite call history, structured post-call summaries, and one validated sales status are implemented. Assistant speech uses backend TTS so consented recordings can include both customer and assistant audio; the upstream service requires internet access.</p></div></section>
     <footer><span>VoicePilot · AI Voice Sales Bot</span><a href={`${API_BASE}/docs`} target="_blank" rel="noreferrer">API documentation <ExternalLink size={13}/></a></footer>
   </main>
 }
