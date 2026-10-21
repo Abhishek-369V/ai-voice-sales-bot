@@ -13,6 +13,7 @@ Sankar Group 48-hour intern assignment. VoicePilot is a browser-based AI sales a
 - SQLite persistence for completed call transcripts, duration, summary, requirements, objections, next steps, and one validated sales status.
 - Playback of recordings saved with consent.
 - Call-history list with transcript, summary, recording availability, and final sales status.
+- Clear-history action with an explicit confirmation step; deleting history removes call records and their embedded recordings from SQLite.
 - Six allowed sales statuses: `Converted`, `Interested`, `Follow-up Required`, `Not Interested`, `Demo Requested`, and `No Response`.
 - Mocked API regression tests and GitHub Actions checks for backend tests and frontend production build.
 
@@ -21,7 +22,7 @@ Sankar Group 48-hour intern assignment. VoicePilot is a browser-based AI sales a
 - Browser speech recognition availability and language quality depend on desktop browser support.
 - The frontend currently sends each latest customer message to Gemini separately. Post-call analysis uses the complete saved transcript, but the live assistant is not yet given the full conversation history as model context.
 - SQLite is intended for the demo/single-instance deployment. For multi-instance hosting, move call history and recordings to durable shared storage.
-- The app stores recordings in the local SQLite database. Keep the database out of Git and consider retention/deletion controls before real customer use.
+- The app stores recordings in the local SQLite database. Keep the database out of Git. Clear History permanently deletes all saved call records and their embedded recordings; add a retention policy before real customer use.
 - The fictional LeadPilot CRM product facts are intentionally limited. Pricing, integrations, automated email campaigns, reminders, and analytics are unconfirmed and must not be represented as supported or unsupported without verified product information.
 
 ## Stack

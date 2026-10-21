@@ -192,3 +192,13 @@
 - **Alternatives considered:** Keep microphone-only recording, or require `getDisplayMedia` tab-audio sharing, which adds a disruptive browser sharing prompt and is browser-dependent.
 - **Trade-offs:** The free `gTTS` path is an unofficial internet-dependent service, can add latency, and may be rate-limited. Browser testing must confirm assistant audio is audible in the recording and that playback remains audible to the user.
 - **Validation:** Automated tests cover supported TTS language codes; manually record a consented English, Hindi, and Telugu call and replay each recording. Confirm unchecked consent stores no audio.
+
+
+### D-020: Provide explicit bulk deletion for call history
+
+- **Status:** Implemented; manual UI validation required
+- **Decision:** Add a Clear History action that requires confirmation and deletes all call rows from SQLite, including any recording audio stored in those rows.
+- **Context:** During repeated manual testing, call history accumulated and there was no UI to remove test conversations.
+- **Rationale:** Keeps demo cleanup straightforward while making permanent deletion explicit.
+- **Trade-offs:** Deletion is permanent and applies to all saved calls; the demo has no per-call deletion or recovery mechanism.
+- **Validation:** API tests verify that history becomes empty, saved recording playback returns 404 after deletion, and deleting an already-empty history succeeds. Manually confirm the UI requires confirmation before deletion.
