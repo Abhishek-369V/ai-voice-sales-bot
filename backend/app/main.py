@@ -235,7 +235,7 @@ def ai_test(payload: AITestRequest):
             contents=f"Customer message: {payload.message}",
             config=types.GenerateContentConfig(
                 system_instruction=PRODUCT_CONTEXT,
-                max_output_tokens=256,
+                max_output_tokens=512,
                 thinking_config=types.ThinkingConfig(thinking_level="low"),
             ),
         )
